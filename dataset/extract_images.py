@@ -14,10 +14,10 @@ outputDir = args.out_dir
 assert filename != '', "No tsv file!"
 if not os.path.exists(outputDir):
     os.makedirs(outputDir)
-
+i = 0
 with open(filename, 'r') as tsvF:
     reader = csv.reader(tsvF, delimiter='\t')
-    i = 0
+    
     for row in reader:
       MID, imgSearchRank, faceID, data = row[0], row[1], row[4], base64.b64decode(row[-1])
 
@@ -31,5 +31,4 @@ with open(filename, 'r') as tsvF:
 
       i += 1
 
-      if i % 1000 == 0:
-        print("Extracted {} images.".format(i))
+print("Extracted {} images.".format(i))
