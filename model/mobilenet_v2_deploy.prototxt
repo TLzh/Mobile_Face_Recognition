@@ -5,30 +5,30 @@ name: "MOBILENET_V2"
 #    crop_size: 224
 #    mean_value: [103.94,116.78,123.68]
 #  }
-#input: "data"
-#input_dim: 1
-#input_dim: 3
-#input_dim: 224
-#input_dim: 224
-layer {
-  neme: "ms1m"
-  type: "Data"
-  top: "data"
-  top: "label"
-  include {
-    phase: TRAIN
-  }
-  transform_param {
-    scale: 0.017
-    #crop_size: 224
-    #mean_value: [103.94,116.78,123.68]
-  }
-  data_param {
-    source: "MS1M_train_lmdb"
-    batch_size: 64
-    backend: LMDB
-  }
-}
+input: "data"
+input_dim: 1
+input_dim: 3
+input_dim: 224
+input_dim: 224
+#layer {
+#  name: "ms1m"
+#  type: "Data"
+#  top: "data"
+#  top: "label"
+#  include {
+#    phase: TRAIN
+#  }
+#  transform_param {
+#    scale: 0.017
+#    #crop_size: 224
+#    #mean_value: [103.94,116.78,123.68]
+#  }
+#  data_param {
+#    source: "MS1M_train_lmdb"
+#    batch_size: 64
+#    backend: LMDB
+#  }
+#}
 #layer {
 #  neme: "ms1m"
 #  type: "Data"
@@ -3459,7 +3459,7 @@ layer {
     lr_mult: 2
   }
   inner_product_param {
-    num_output: .........
+    num_output: 12345
     weight_filler {
       type: "xavier"
     }
@@ -3474,10 +3474,10 @@ layer {
 #  bottom: "fc7"
 #  top: "prob"
 #}
-layer {
-  name: "loss"
-  type: "SoftmaxWithLoss"
-  bottom: "ip7"
-  bottom: "label"
-  top: "loss"
-}
+#layer {
+#  name: "loss"
+#  type: "SoftmaxWithLoss"
+#  bottom: "ip7"
+#  bottom: "label"
+#  top: "loss"
+#}
