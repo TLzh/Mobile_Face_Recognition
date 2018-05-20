@@ -29,10 +29,10 @@ std::string locateFile(const std::string& input)
     return locateFile(input, directories);
 }
 
-void readJPEGFile(const std::string& fileName, uint8_t buffer[INPUT_H*INPUT_W])
-{
+//void readJPEGFile(const std::string& fileName, uint8_t buffer[INPUT_H*INPUT_W])
+//{
 //    readJPGFile(fileName, buffer, INPUT_H, INPUT_W);
-}
+//}
 
 void caffeToGIEModel(
         const std::string& deployFile, 
@@ -84,14 +84,14 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
                 outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
 
         // create GPU buffers and a stream
-        CHECK(cudaMalloc(&buffers[inputIndex], batchSize * INPUT_H * INPUT_W * sizeof(float)));
+        CHECK(cudaMalloc(&buffers[inputIndex], batchSize * INPUT_C * INPUT_H * INPUT_W * sizeof(float)));
         CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
 
         cudaStream_t stream;
         CHECK(cudaStreamCreate(&stream));
 
         // DMA the input to the GPU,  execute the batch asynchronously, and DMA it back:
-        CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * INPUT_C * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
         context.enqueue(batchSize, buffers, stream, nullptr);
         CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE*sizeof(float), cudaMemcpyDeviceToHost, stream));
         cudaStreamSynchronize(stream);
@@ -103,9 +103,6 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
 }
 int main(int argc, char** argv)
 {
-    int kk = 231;
-    int xx[10];
-    std::cout << xx[10] << std::endl;
     // create a GIE model from the caffe model and serialize it to a stream
     IHostMemory *gieModelStream{nullptr};
     caffeToGIEModel("mobilenet_v2_deploy.prototxt", "mobilenet_v2.caffemodel", std::vector < std::string > { OUTPUT_BLOB_NAME }, 1, gieModelStream);
@@ -113,7 +110,7 @@ int main(int argc, char** argv)
     // read a random digit file
     
     //srand(unsigned(time(nullptr)));
-    uint8_t fileData[INPUT_H*INPUT_W];
+    //uint8_t fileData[INPUT_H*INPUT_W];
     //int num = rand() % 10; 
     //readPGMFile(locateFile("cat.jpg", directories), fileData);
     std::string imgname = locateFile("cat.jpg", directories);
@@ -128,11 +125,11 @@ int main(int argc, char** argv)
     //parser->destroy();
 
     //const float *meanData = reinterpret_cast<const float*>(meanBlob->getData());
-
-    float data[INPUT_H*INPUT_W*INPUT_C];
+    float data[INPUT_C*INPUT_W*INPUT_H];
     for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
-        data[i] = float(*(image.ptr<uchar>(0)+i));
-
+    {
+        data[i] = (float(*(image.ptr<uchar>(0)+i)) - img_mean[i%3]) * 0.017;
+    }
     //meanBlob->destroy();
 
     // deserialize the engine 
@@ -152,9 +149,10 @@ int main(int argc, char** argv)
     runtime->destroy();
     float max_value = 0;
     int max_index = -1;
-    for (int i = 0; i < 1010; i++)
+    float sum_prob = 0;
+    for (int i = 0; i < OUTPUT_SIZE; i++)
     {
-        std::cout << prob[i] << ",";
+        sum_prob += prob[i];
         if (prob[i] > max_value)
         {
             max_value = prob[i];
@@ -162,6 +160,7 @@ int main(int argc, char** argv)
         }
     }
     std::cout << std::endl;
+    std::cout << sum_prob << std::endl;
     std::cout << max_value << std::endl;
     std::cout << max_index << std::endl;
 /*
