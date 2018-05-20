@@ -3,7 +3,7 @@
 # N.B. set the path to the imagenet train + val data dirs
 set -e
 
-EXAMPLE=/media/data/lzh/train_test
+EXAMPLE=/media/data/lzh/val
 DATA=/media/data/lzh/MS-Celeb-1M
 TOOLS=/home/deep-machine/caffe-master/build/tools
 
@@ -38,6 +38,10 @@ if [ ! -d "$VAL_DATA_ROOT" ]; then
   exit 1
 fi
 
+BACKEND="lmdb"
+rm -rf $EXAMPLE/train_${BACKEND}
+rm -rf $EXAMPLE/val_${BACKEND}
+
 echo "Creating train lmdb..."
 
 GLOG_logtostderr=1 $TOOLS/convert_imageset \
@@ -46,7 +50,7 @@ GLOG_logtostderr=1 $TOOLS/convert_imageset \
     --shuffle \
     $TRAIN_DATA_ROOT \
     $DATA/train.txt \
-    $EXAMPLE/ms1m_train_lmdb
+    $EXAMPLE/train_lmdb
 
 echo "Creating val lmdb..."
 
@@ -56,6 +60,6 @@ GLOG_logtostderr=1 $TOOLS/convert_imageset \
     --shuffle \
     $VAL_DATA_ROOT \
     $DATA/val.txt \
-    $EXAMPLE/ms1m_val_lmdb
+    $EXAMPLE/val_lmdb
 
 echo "Done."
