@@ -18,16 +18,14 @@ using namespace nvcaffeparser1;
 static const int INPUT_H = 224;
 static const int INPUT_W = 224;
 static const int INPUT_C = 3;
-static const int OUTPUT_SIZE = 1000;
+static const int OUTPUT_SIZE = 512;
 static Logger gLogger;
 
 const char* INPUT_BLOB_NAME = "data";
-const char* OUTPUT_BLOB_NAME = "prob";
-const std::vector<std::string> directories{"caffe_model/"};
-std::string locateFile(const std::string& input)
-{
-    return locateFile(input, directories);
-}
+const char* OUTPUT_BLOB_NAME = "embedding";
+const std::vector<std::string> net_dir{"network/"};
+const std::vector<std::string> img_dir{"image/"};
+
 
 //void readJPEGFile(const std::string& fileName, uint8_t buffer[INPUT_H*INPUT_W])
 //{
@@ -45,10 +43,10 @@ void caffeToGIEModel(
     INetworkDefinition* network = builder->createNetwork();
     ICaffeParser* parser = createCaffeParser();
     const IBlobNameToTensor* blobNameToTensor = parser->parse(
-               locateFile(deployFile, directories).c_str(),
-               locateFile(modelFile, directories).c_str(),
+               locateFile(deployFile, net_dir).c_str(),
+               locateFile(modelFile, net_dir).c_str(),
                *network,
-               DataType::kFLOAT);
+               DataType::kHALF);
 
     // specify which tensors are outputs
     for (auto& s : outputs)
@@ -105,32 +103,39 @@ int main(int argc, char** argv)
 {
     // create a GIE model from the caffe model and serialize it to a stream
     IHostMemory *gieModelStream{nullptr};
-    caffeToGIEModel("mobilenet_v2_deploy.prototxt", "mobilenet_v2.caffemodel", std::vector < std::string > { OUTPUT_BLOB_NAME }, 1, gieModelStream);
-
-    // read a random digit file
+    caffeToGIEModel("mobilenet_v2_deploy.prototxt", "solver_iter_100000.caffemodel", std::vector < std::string > { OUTPUT_BLOB_NAME }, 1, gieModelStream);
     
-    //srand(unsigned(time(nullptr)));
-    //uint8_t fileData[INPUT_H*INPUT_W];
-    //int num = rand() % 10; 
-    //readPGMFile(locateFile("cat.jpg", directories), fileData);
-    std::string imgname = locateFile("cat.jpg", directories);
-    cv::Mat inimg = cv::imread(imgname);
-    const float img_mean[3] = {103.94, 116.78, 123.68};
+    
+    std::string imgname1 = locateFile(argv[1], img_dir);
+    std::string imgname2 = locateFile(argv[2], img_dir);
+    //std::string imgname3 = locateFile(argv[3], img_dir);
+    cv::Mat inimg1 = cv::imread(imgname1);
+    cv::Mat inimg2 = cv::imread(imgname2);
+    //cv::Mat inimg3 = cv::imread(imgname3);
     cv::Size dsize(INPUT_W, INPUT_H);
-    cv::Mat image = cv::Mat(dsize, CV_8UC3);
-    cv::resize(inimg, image, dsize);
-    // parse the mean file and      subtract it from the image
-    //ICaffeParser* parser = createCaffeParser();
-    //IBinaryProtoBlob* meanBlob = parser->parseBinaryProto(locateFile("mnist_mean.binaryproto", directories).c_str());
-    //parser->destroy();
+    cv::Mat image1 = cv::Mat(dsize, CV_8UC3);
+    cv::Mat image2 = cv::Mat(dsize, CV_8UC3);
+    //cv::Mat image3 = cv::Mat(dsize, CV_8UC3);
+    cv::resize(inimg1, image1, dsize);
+    cv::resize(inimg2, image2, dsize);
+    //cv::resize(inimg3, image3, dsize);
+    
 
-    //const float *meanData = reinterpret_cast<const float*>(meanBlob->getData());
-    float data[INPUT_C*INPUT_W*INPUT_H];
+    float data1[INPUT_C*INPUT_W*INPUT_H];
     for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
     {
-        data[i] = (float(*(image.ptr<uchar>(0)+i)) - img_mean[i%3]) * 0.017;
+        data1[i] = float(*(image1.ptr<uchar>(0)+i));
     }
-    //meanBlob->destroy();
+    float data2[INPUT_C*INPUT_W*INPUT_H];
+    for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
+    {
+        data2[i] = float(*(image2.ptr<uchar>(0)+i));
+    }
+    //float data3[INPUT_C*INPUT_W*INPUT_H];
+    //for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
+    //{
+    //    data3[i] = float(*(image3.ptr<uchar>(0)+i));
+    //}
 
     // deserialize the engine 
     IRuntime* runtime = createInferRuntime(gLogger);
@@ -140,43 +145,28 @@ int main(int argc, char** argv)
     IExecutionContext *context = engine->createExecutionContext();
 
     // run inference
-    float prob[1000];
-    doInference(*context, data, prob, 1);
+    float embedding1[OUTPUT_SIZE], embedding2[OUTPUT_SIZE];//, embedding3[OUTPUT_SIZE];
+    doInference(*context, data1, embedding1, 1);
+    doInference(*context, data2, embedding2, 1);
+    //doInference(*context, data3, embedding3, 1);
+    
 
     // destroy the engine
     context->destroy();
     engine->destroy();
     runtime->destroy();
-    float max_value = 0;
-    int max_index = -1;
-    float sum_prob = 0;
+    
+    float dist1 = 0;
+    //float dis2 = 0;
+    
     for (int i = 0; i < OUTPUT_SIZE; i++)
     {
-        sum_prob += prob[i];
-        if (prob[i] > max_value)
-        {
-            max_value = prob[i];
-            max_index = i;
-        }
+        dist1 += (embedding1[i] - embedding2[i]) * (embedding1[i] - embedding2[i]);
+        //dis2 += (embedding1[i] - embedding3[i]) * (embedding1[i] - embedding3[i]);
     }
-    std::cout << std::endl;
-    std::cout << sum_prob << std::endl;
-    std::cout << max_value << std::endl;
-    std::cout << max_index << std::endl;
-/*
-    // print a histogram of the output distribution
-    std::cout << "\n\n";
-    float val{0.0f};
-    int idx{0};
-    for (unsigned int i = 0; i < 10; i++)
-    {
-        val = std::max(val, prob[i]);
-        if (val == prob[i]) idx = i;
-            std::cout << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
-    }
-    std::cout << std::endl;
-
-    return (idx == num && val > 0.9f) ? EXIT_SUCCESS : EXIT_FAILURE;
-*/
+    std::cout << dist1;
+    //std::cout << dis2 << std::endl;
+    
+    return 0;
 }
 
