@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <algorithm>
 #include <sys/stat.h>
-#include <time.h>
+#include <ctime>
 #include <opencv2/opencv.hpp>
 
 #include "NvInfer.h"
@@ -46,7 +46,7 @@ void caffeToGIEModel(
                locateFile(deployFile, net_dir).c_str(),
                locateFile(modelFile, net_dir).c_str(),
                *network,
-               DataType::kHALF);
+               DataType::kFLOAT);
 
     // specify which tensors are outputs
     for (auto& s : outputs)
@@ -121,22 +121,28 @@ int main(int argc, char** argv)
     //cv::resize(inimg3, image3, dsize);
     
 
-    float data1[INPUT_C*INPUT_W*INPUT_H];
-    for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
+    float data1[INPUT_C*INPUT_H*INPUT_W];
+    float data2[INPUT_C*INPUT_H*INPUT_W];
+    for (int i = 0, volChl = INPUT_H * INPUT_W; i < INPUT_C; i++)
     {
-        data1[i] = float(*(image1.ptr<uchar>(0)+i));
+        for (int j = 0; j < volChl; j++)
+        {
+            data1[i*volChl + j] = float(*(image1.ptr<uchar>(0) + j*INPUT_C + i));
+            data2[i*volChl + j] = float(*(image2.ptr<uchar>(0) + j*INPUT_C + i));
+        }
     }
-    float data2[INPUT_C*INPUT_W*INPUT_H];
-    for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
-    {
-        data2[i] = float(*(image2.ptr<uchar>(0)+i));
-    }
+    //float data2[INPUT_C*INPUT_H*INPUT_w];
+    //for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
+    //{
+    //    data2[i] = float(*(image2.ptr<uchar>(0)+i));
+    //}
     //float data3[INPUT_C*INPUT_W*INPUT_H];
     //for (int i = 0; i < INPUT_H*INPUT_W*INPUT_C; i++)
     //{
     //    data3[i] = float(*(image3.ptr<uchar>(0)+i));
     //}
-
+    
+    
     // deserialize the engine 
     IRuntime* runtime = createInferRuntime(gLogger);
     ICudaEngine* engine = runtime->deserializeCudaEngine(gieModelStream->data(), gieModelStream->size(), nullptr);
@@ -146,10 +152,26 @@ int main(int argc, char** argv)
 
     // run inference
     float embedding1[OUTPUT_SIZE], embedding2[OUTPUT_SIZE];//, embedding3[OUTPUT_SIZE];
-    doInference(*context, data1, embedding1, 1);
-    doInference(*context, data2, embedding2, 1);
-    //doInference(*context, data3, embedding3, 1);
     
+    std::cout << "Start do inference." << std::endl;
+    clock_t start, end;
+    double cost = 0;
+    
+    
+    for (int i = 0; i < 1; i++)
+    {
+        start = clock();
+        doInference(*context, data1, embedding1, 1);
+        doInference(*context, data2, embedding2, 1);
+    //doInference(*context, data3, embedding3, 1);
+        end = clock();
+        cost += double(end - start);
+    }
+    
+    
+    cost = cost / CLOCKS_PER_SEC;
+    std::cout << "Do inference cost " << cost << "s." << std::endl; 
+
 
     // destroy the engine
     context->destroy();
@@ -165,6 +187,7 @@ int main(int argc, char** argv)
         //dis2 += (embedding1[i] - embedding3[i]) * (embedding1[i] - embedding3[i]);
     }
     std::cout << dist1;
+    std::cout << std::endl;
     //std::cout << dis2 << std::endl;
     
     return 0;

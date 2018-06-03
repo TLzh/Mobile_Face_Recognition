@@ -25,5 +25,5 @@ LINK_DIRECTORIES(/home/nvidia/lzh/dlib-19.12/build/dlib/) #dlib编译后bulid下
 #生产类似于.exe的可执行文件
 ADD_EXECUTABLE(dlib_detector ${PROJECT_SOURCE_DIR}/face_detect.cpp)
 #链接库
-TARGET_LINK_LIBRARIES(dlib_detector dlib ${OpenCV_LIBS})
+TARGET_LINK_LIBRARIES(dlib_detector dlib::dlib ${OpenCV_LIBS})
 #TARGET_LINK_LIBRARIES(dlib_detector libjpeg.so)

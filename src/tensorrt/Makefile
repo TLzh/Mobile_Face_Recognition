@@ -1,4 +1,4 @@
-OUTNAME_RELEASE = sample_lzh
-OUTNAME_DEBUG   = sample_lzh_debug
+OUTNAME_RELEASE = face_embedding
+OUTNAME_DEBUG   = face_embedding_debug
 MAKEFILE ?= ../Makefile.config
 include $(MAKEFILE)
